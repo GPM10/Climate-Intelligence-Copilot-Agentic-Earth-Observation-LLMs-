@@ -1,0 +1,78 @@
+# Climate Intelligence Copilot Configuration
+
+# LLM Configuration
+llm:
+  provider: "openai"  # options: openai, anthropic, ollama
+  model: "gpt-4"
+  temperature: 0.7
+  max_tokens: 2048
+  api_key: "${OPENAI_API_KEY}"
+
+# Google Earth Engine Configuration
+gee:
+  enabled: true
+  project_id: "${GEE_PROJECT_ID}"
+  service_account_path: "${GEE_SERVICE_ACCOUNT_PATH}"
+  
+# Sentinel-2 Configuration
+sentinel:
+  username: "${SENTINEL_USERNAME}"
+  password: "${SENTINEL_PASSWORD}"
+  
+# Database & Storage
+database:
+  type: "sqlite"  # options: sqlite, postgresql
+  path: "./data/climate_copilot.db"
+  
+vector_db:
+  type: "faiss"
+  index_path: "./data/faiss_index"
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+  
+# Agent Configuration
+agents:
+  satellite:
+    model: "resnet50"
+    pretrained: true
+    device: "cuda"  # options: cuda, cpu
+    confidence_threshold: 0.7
+    
+  data:
+    cache_enabled: true
+    cache_dir: "./data/cache"
+    timeout: 300
+    
+  reasoning:
+    model: "gpt-4"
+    temperature: 0.5
+    
+  policy:
+    use_llm: true
+    rule_based_fallback: true
+
+# Geospatial Settings
+geospatial:
+  default_crs: "EPSG:4326"
+  resolution: 10  # meters for Sentinel-2
+  worker_threads: 4
+
+# Logging
+logging:
+  level: "INFO"
+  format: "json"
+  log_dir: "./logs"
+
+# Cache Settings
+cache:
+  enabled: true
+  ttl: 3600  # seconds
+  backend: "disk"  # options: disk, redis
+
+# Advanced Features
+features:
+  explainability:
+    enabled: true
+    method: "grad-cam"  # options: grad-cam, saliency, attention
+  
+  time_series_analysis: true
+  change_detection: true
