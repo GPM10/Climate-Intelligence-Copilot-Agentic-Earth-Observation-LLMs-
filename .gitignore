@@ -33,3 +33,4 @@ notebooks/.ipynb_checkpoints/
 # OS specific
 .DS_Store
 Thumbs.db
+.env.example
