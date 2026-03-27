@@ -1,0 +1,35 @@
+# Bytecode / cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.*
+config/gee-key.json
+
+# IDE / tooling
+.idea/
+.vscode/
+*.swp
+
+# Logs & reports
+logs/
+*.log
+
+# Data & artifacts
+data/sentinel/
+data/cams/
+data/cache/
+data/faiss_index
+data/external/
+notebooks/.ipynb_checkpoints/
+
+# OS specific
+.DS_Store
+Thumbs.db

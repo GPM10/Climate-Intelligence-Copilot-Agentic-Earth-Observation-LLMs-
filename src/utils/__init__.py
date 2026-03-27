@@ -46,11 +46,25 @@ class Config:
             },
             'gee': {
                 'project_id': os.getenv('GEE_PROJECT_ID'),
-                'service_account_path': os.getenv('GEE_SERVICE_ACCOUNT_PATH')
+                'service_account_path': os.getenv('GEE_SERVICE_ACCOUNT_PATH'),
+                'service_account_email': os.getenv('GEE_SERVICE_ACCOUNT_EMAIL'),
             },
             'database': {
                 'url': os.getenv('DATABASE_URL', 'sqlite:///./data/climate_copilot.db')
-            }
+            },
+            'sentinel': {
+                'username': os.getenv('SENTINEL_USERNAME'),
+                'password': os.getenv('SENTINEL_PASSWORD'),
+                'api_url': os.getenv('SENTINEL_API_URL'),
+                'download_dir': os.getenv('SENTINEL_DOWNLOAD_DIR'),
+            },
+            'cams': {
+                'api_url': os.getenv('CAMS_API_URL'),
+                'api_key': os.getenv('CAMS_API_KEY'),
+            },
+            'gbif': {
+                'user_agent': os.getenv('GBIF_USER_AGENT'),
+            },
         }
         
         # Merge with YAML config
@@ -58,6 +72,30 @@ class Config:
             if key not in self.config:
                 self.config[key] = {}
             self.config[key].update({k: v for k, v in value.items() if v})
+
+        data_sources_env = {
+            'cams': {
+                'api_url': os.getenv('CAMS_API_URL'),
+                'api_key': os.getenv('CAMS_API_KEY'),
+            },
+            'edgar': {
+                'csv_path': os.getenv('EDGAR_CSV_PATH'),
+            },
+            'gbif': {
+                'user_agent': os.getenv('GBIF_USER_AGENT'),
+            },
+        }
+
+        if data_sources_env:
+            if 'data_sources' not in self.config:
+                self.config['data_sources'] = {}
+            for source_name, values in data_sources_env.items():
+                filtered = {k: v for k, v in values.items() if v}
+                if not filtered:
+                    continue
+                if source_name not in self.config['data_sources']:
+                    self.config['data_sources'][source_name] = {}
+                self.config['data_sources'][source_name].update(filtered)
     
     def get(self, key: str, default: Any = None) -> Any:
         """Get configuration value by dot-separated key."""

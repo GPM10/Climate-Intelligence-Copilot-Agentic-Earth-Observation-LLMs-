@@ -60,9 +60,16 @@ class ClimateCopilot:
         self.config = config
         self.logger = logging.getLogger("ClimateCopilot")
         
-        # Initialize all agents
-        self.satellite_agent = SatelliteAgent(config.get('agents', {}).get('satellite', {}))
-        self.data_agent = DataAgent(config.get('agents', {}).get('data', {}))
+        agents_cfg = config.get('agents', {})
+
+        satellite_cfg = agents_cfg.get('satellite', {}).copy()
+        satellite_cfg['sentinel'] = config.get('sentinel', {})
+        self.satellite_agent = SatelliteAgent(satellite_cfg)
+
+        data_cfg = agents_cfg.get('data', {}).copy()
+        data_cfg['data_sources'] = config.get('data_sources', {})
+        self.data_agent = DataAgent(data_cfg)
+
         self.reasoning_agent = ReasoningAgent(config.get('agents', {}).get('reasoning', {}))
         self.policy_agent = PolicyAgent(config.get('agents', {}).get('policy', {}))
         
@@ -145,7 +152,14 @@ class ClimateCopilot:
             'image_path': context.get('image_path'),
             'location': context.get('region', 'Ireland'),
             'timestamp': context.get('timestamp'),
-            'reference_image_path': context.get('reference_image_path')  # For change detection
+            'reference_image_path': context.get('reference_image_path'),
+            'bbox': context.get('bbox'),
+            'center_lat': context.get('center_lat'),
+            'center_lon': context.get('center_lon'),
+            'side_length_km': context.get('side_length_km'),
+            'date_range': context.get('date_range'),
+            'temporal_range': context.get('temporal_range'),
+            'max_cloud_cover': context.get('max_cloud_cover'),
         }
     
     def _prepare_data_input(self, question: str, context: Dict) -> Dict[str, Any]:
@@ -164,7 +178,12 @@ class ClimateCopilot:
         return {
             'data_type': data_type,
             'region': context.get('region', 'Ireland'),
-            'temporal_range': context.get('temporal_range', [2020, 2024])
+            'temporal_range': context.get('temporal_range', [2020, 2024]),
+            'bbox': context.get('bbox'),
+            'country_code': context.get('country_code'),
+            'variables': context.get('variables'),
+            'sectors': context.get('sectors'),
+            'taxon_key': context.get('taxon_key')
         }
     
     def _prepare_reasoning_input(self, question: str, results: Dict, context: Dict) -> Dict[str, Any]:

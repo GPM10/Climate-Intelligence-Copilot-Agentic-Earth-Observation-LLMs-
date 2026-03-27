@@ -13,11 +13,39 @@ gee:
   enabled: true
   project_id: "${GEE_PROJECT_ID}"
   service_account_path: "${GEE_SERVICE_ACCOUNT_PATH}"
+  service_account_email: "${GEE_SERVICE_ACCOUNT_EMAIL}"
   
 # Sentinel-2 Configuration
 sentinel:
   username: "${SENTINEL_USERNAME}"
   password: "${SENTINEL_PASSWORD}"
+  api_url: "https://scihub.copernicus.eu/dhus"
+  download_dir: "./data/sentinel"
+  max_cloud_cover: 20
+  side_length_km: 25
+  lookback_days: 45
+  
+# External Data Sources
+data_sources:
+  edgar:
+    enabled: true
+    csv_path: "./data/external/edgar_country_totals.csv"
+    country_column: "country"
+    year_column: "year"
+    value_column: "total_emissions_mtco2e"
+    sector_column: null
+  cams:
+    enabled: false
+    dataset: "cams-global-ghg-reanalysis-eghg"
+    api_url: "${CAMS_API_URL}"
+    api_key: "${CAMS_API_KEY}"
+    cache_dir: "./data/cams"
+    variables:
+      - "co2_surface_flux"
+  gbif:
+    enabled: true
+    user_agent: "climate-intel-copilot/1.0"
+    taxon_key: null
   
 # Database & Storage
 database:
