@@ -64,6 +64,7 @@ class ClimateCopilot:
 
         satellite_cfg = agents_cfg.get('satellite', {}).copy()
         satellite_cfg['sentinel'] = config.get('sentinel', {})
+        satellite_cfg['hyperspectral'] = config.get('hyperspectral', {})
         self.satellite_agent = SatelliteAgent(satellite_cfg)
 
         data_cfg = agents_cfg.get('data', {}).copy()
@@ -150,9 +151,11 @@ class ClimateCopilot:
         
         return {
             'image_path': context.get('image_path'),
+            'sensor': context.get('sensor'),
             'location': context.get('region', 'Ireland'),
             'timestamp': context.get('timestamp'),
             'reference_image_path': context.get('reference_image_path'),
+            'reference_hyperspectral_cube_path': context.get('reference_hyperspectral_cube_path'),
             'bbox': context.get('bbox'),
             'center_lat': context.get('center_lat'),
             'center_lon': context.get('center_lon'),
@@ -160,6 +163,10 @@ class ClimateCopilot:
             'date_range': context.get('date_range'),
             'temporal_range': context.get('temporal_range'),
             'max_cloud_cover': context.get('max_cloud_cover'),
+            'hyperspectral_cube_path': context.get('hyperspectral_cube_path'),
+            'hyperspectral_array': context.get('hyperspectral_array'),
+            'hyperspectral_bands': context.get('hyperspectral_bands'),
+            'hyperspectral_rgb_mode': context.get('hyperspectral_rgb_mode'),
         }
     
     def _prepare_data_input(self, question: str, context: Dict) -> Dict[str, Any]:

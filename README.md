@@ -1,346 +1,237 @@
 # Climate Intelligence Copilot
-## 🌍 AI-Powered Climate Decision Support System
+## AI-Powered Climate Decision Support System
 
-Build intelligent climate analysis with satellite data, LLMs, and agentic reasoning.
+Climate Intelligence Copilot combines satellite imagery, climate datasets, and language-model reasoning to explain environmental change and recommend evidence-based policy actions.
 
-### 🎯 What This Does
+### What This Platform Delivers
 
-A **production-ready** Climate Intelligence Copilot that combines:
-- 🛰️ **Satellite Imagery** → Land-use classification & change detection
-- 📊 **Climate Data** → Emissions, biodiversity, precipitation, temperature
-- 🧠 **LLM Reasoning** → Explains causality and answers complex questions
-- 🧾 **Policy Agent** → Recommends evidence-based interventions
+A production-ready workflow that unifies:
+- Satellite imagery processing for land-use classification and change detection.
+- Optional hyperspectral ingestion for high-dimensional sensors and spectral analytics.
+- Climate and biodiversity data aggregation across leading public datasets.
+- LLM reasoning layers that explain causal drivers and answer natural-language questions.
+- Policy intelligence that prioritizes actionable interventions.
 
-**Example Query:**
+**Illustrative workflow**
 ```
 "Which regions in Ireland have rising land degradation and why?"
-↓
-Satellite Agent: Detects deforestation patterns
-Data Agent: Retrieves emissions & biodiversity data
-Reasoning Agent: Explains drivers (agriculture expansion, logging, etc.)
-Policy Agent: Suggests interventions (reforestation, protected areas, etc.)
+-> Satellite Agent: detects deforestation patterns
+-> Data Agent: retrieves emissions and biodiversity indicators
+-> Reasoning Agent: explains drivers (for example, agricultural expansion)
+-> Policy Agent: recommends interventions (for example, reforestation or protected areas)
 ```
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
-### 1. Clone & Setup
+### 1. Clone and Set Up
 ```bash
 cd "Climate Intelligence Copilot (Agentic + Earth Observation + LLMs)"
 
-# Create virtual environment
 python -m venv venv
-venv\Scripts\activate  # Windows
-# or: source venv/bin/activate  # Linux/Mac
+venv\\Scripts\\activate        # Windows
+# or: source venv/bin/activate   # Linux / macOS
 
-# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment
+### 2. Configure Environment Variables
 ```bash
-# Copy example env file
 cp .env.example .env
-
-# Edit .env and add:
-# - OPENAI_API_KEY=sk-...
-# - GEE_PROJECT_ID=your-project
-# - SENTINEL_USERNAME/PASSWORD
+# Populate the following values:
+# OPENAI_API_KEY=...
+# GEE_PROJECT_ID=...
+# SENTINEL_USERNAME=...
+# SENTINEL_PASSWORD=...
+# HYPERSPECTRAL_DATA_DIR=... (optional)
+# HYPERSPECTRAL_API_TOKEN=... (optional)
 ```
 
-### 3. Run Examples
+### 3. Run the Examples
 ```bash
-# Quick demo
 python example.py
-
-# CLI interface
 python main.py ask --question "What is the emissions trend in Ireland?"
 python main.py analyze-region --region Ireland --start-year 2020 --end-year 2024
-
-# Jupyter notebooks
 jupyter notebook notebooks/analysis.ipynb
 ```
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/
-├── agents/
-│   ├── base.py                 # Base agent class
-│   ├── satellite_agent.py      # 🛰️ Land-use & change detection
-│   ├── data_agent.py           # 📊 Climate data aggregation
-│   ├── reasoning_agent.py      # 🧠 LLM-powered analysis
-│   ├── policy_agent.py         # 🧾 Policy recommendations
-│   └── __init__.py             # Orchestrator (ClimateCopilot)
-├── geospatial/
-│   └── __init__.py             # Geospatial utilities, EE integration
-├── data/
-│   └── __init__.py             # Data processing & calculations
-└── utils/
-    └── __init__.py             # Config, logging, vector DB
+|-- agents/
+|   |-- base.py                # Base agent class
+|   |-- satellite_agent.py     # Land-use and change detection
+|   |-- data_agent.py          # Climate data aggregation
+|   |-- reasoning_agent.py     # LLM-powered analysis
+|   |-- policy_agent.py        # Policy recommendations
+|   `-- __init__.py            # Orchestrator (ClimateCopilot)
+|-- geospatial/
+|   `-- __init__.py            # Geospatial utilities and Earth Engine helpers
+|-- data/
+|   `-- __init__.py            # Data-processing utilities
+`-- utils/
+    `-- __init__.py            # Configuration, logging, vector search helpers
 
 config/
-├── settings.yaml               # Configuration (LLM, GEE, agents)
-└── gee-key.json               # Google Earth Engine credentials
+|-- settings.yaml              # Core configuration (LLM, GEE, agents)
+`-- gee-key.json               # Google Earth Engine credentials
 
 notebooks/
-└── analysis.ipynb             # Jupyter examples
+`-- analysis.ipynb             # Walk-through notebook
 
-main.py                         # CLI entry point
-example.py                      # Quick start example
+main.py                        # CLI entry point
+example.py                     # Quick-start script
 ```
 
 ---
 
-## 🧠 Agent Architecture
+## Agent Architecture
 
-### **Satellite Agent 🛰️**
-- Processes Sentinel-2 multi-spectral imagery
-- Classifies 10 land-use types using CNN (ResNet50)
-- Detects land-use changes over time
-- Provides Grad-CAM visual explanations
-- Spectral indices: NDVI, NDBI, NDMI
+### Satellite Agent
+- Processes Sentinel-2 multispectral imagery.
+- Classifies ten land-use types using a ResNet50 backbone.
+- Detects multi-temporal change and produces Grad-CAM overlays.
+- Computes NDVI, NDBI, NDMI, and related indices.
 
 ```python
-# Usage
 from agents.satellite_agent import SatelliteAgent
-
 agent = SatelliteAgent()
 result = agent.run({
-    'image_path': 'sentinel2_image.tif',
-    'location': 'Ireland',
-    'reference_image_path': 'historical.tif'  # For change detection
+    "image_path": "sentinel2_image.tif",
+    "location": "Ireland",
+    "reference_image_path": "historical.tif"
 })
-
-print(result.data['classification'])  # Land use class & confidence
-print(result.data['change_detection']) # Change magnitude
 ```
 
-### **Data Agent 📊**
-- Aggregates emissions data (EDGAR, CAMS)
-- Fetches climate observations (ECMWF, WorldClim)
-- Retrieves biodiversity indicators (GBIF, IUCN)
-- Processes land cover data (ESA-CCI, Copernicus)
-- Intelligent caching for efficiency
+### Data Agent
+- Aggregates emissions (EDGAR, CAMS), climate observations (ECMWF, WorldClim), biodiversity indicators (GBIF, IUCN), and land-cover products (ESA-CCI, Copernicus).
+- Supports caching and flexible temporal windows.
 
 ```python
 from agents.data_agent import DataAgent
-
 agent = DataAgent()
 result = agent.run({
-    'data_type': 'emissions',
-    'region': 'Ireland',
-    'temporal_range': [2020, 2024]
+    "data_type": "emissions",
+    "region": "Ireland",
+    "temporal_range": [2020, 2024]
 })
-
-print(result.data['emissions'])  # CO2, CH4, N2O time-series
 ```
 
-### **Reasoning Agent 🧠**
-- LLM-powered climate analysis (OpenAI/Anthropic)
-- Answers natural language questions
-- Explains causality and trends
-- Integrates outputs from other agents
-- Evidence-based reasoning with confidence scores
+### Reasoning Agent
+- Uses OpenAI or Anthropic models to synthesize agent outputs.
+- Explains causal drivers, trends, and uncertainties.
+- Returns evidence references and confidence scores.
 
-```python
-from agents.reasoning_agent import ReasoningAgent
+### Policy Agent
+- Generates prioritized, cost-aware recommendations.
+- Provides resource estimates, timelines, and co-benefits.
 
-agent = ReasoningAgent()
-result = agent.run({
-    'question': 'Why is deforestation increasing?',
-    'context': {'satellite_data': {...}, 'climate_data': {...}}
-})
+### Orchestrator
+- `ClimateCopilot` coordinates the specialist agents and returns a consolidated response.
 
-print(result.data['explanation'])
-print(result.data['evidence'])
+---
+
+## Technology Stack
+
+| Component | Technologies | Purpose |
+|-----------|-------------|---------|
+| Satellite Data | Sentinelsat, rasterio, GeoPandas | Sentinel-2 acquisition and preprocessing |
+| Geospatial | Google Earth Engine, GDAL | Cloud-based and local spatial analysis |
+| Machine Learning | PyTorch, ResNet50, Grad-CAM | Classification and explainability |
+| Data Processing | Pandas, NumPy, xarray | Climate and emissions analytics |
+| LLM Orchestration | LangChain, CrewAI | Agent coordination and tool use |
+| Language Models | OpenAI, Anthropic | Natural-language reasoning |
+| Vector Database | FAISS | Semantic retrieval |
+| Configuration | Pydantic, YAML | Settings management |
+
+---
+
+## Key Features
+
+1. **Satellite Analysis**: Land-use classification with confidence scores, Grad-CAM explainability, and multi-temporal change detection.
+2. **Climate Data Integration**: Multi-source aggregation with sectoral breakdowns, anomaly detection, and trend summaries.
+3. **LLM Reasoning**: Natural-language answers grounded in agent outputs with evidence citations and confidence metadata.
+4. **Policy Recommendations**: ROI-aware action plans, resource estimates, and implementation timelines.
+5. **Advanced Capabilities**: Explainability tooling, time-series analytics, change detection, biodiversity metrics, emissions calculations, semantic search, and caching.
+6. **Hyperspectral Mode**: Optional ingestion of high-dimensional cubes with PCA/band-selection composites, mean spectral signatures, and change detection support.
+
+---
+
+## Example Queries
+
+```
+"Which regions in Ireland have rising land degradation and why?"
+-> Activates Satellite + Data + Reasoning + Policy agents
+
+"What are the greenhouse gas trends in Ireland?"
+-> Activates Data + Reasoning agents
+
+"How can Ireland reduce deforestation?"
+-> Activates Satellite + Data + Reasoning + Policy agents
+
+"How is biodiversity changing in Irish wetlands?"
+-> Activates Data + Reasoning + Policy agents
+
+"What is NDVI?"
+-> Activates Reasoning agent
 ```
 
-### **Policy Agent 🧾**
-- Suggests evidence-based interventions
-- Prioritizes actions by ROI and feasibility
-- Estimates resource requirements and impact
-- Creates implementation timelines
-- Includes co-benefits analysis
+---
 
+## Hyperspectral Integration
+
+The satellite agent can now operate in a hyperspectral mode when you provide a cube file or in-memory array.
+
+**How to enable**
+
+1. Set the optional hyperspectral values in `.env` (for example, `HYPERSPECTRAL_DATA_DIR` and provider tokens).
+2. Configure the `hyperspectral` block in `config/settings.yaml` to choose the data directory, default band selection, RGB mode (`band_selection` or `pca`), and the sampling fraction for spectral signatures.
+3. When invoking the satellite agent (directly or via the copilot), include at least one of `hyperspectral_cube_path`, `hyperspectral_array`, or set `sensor="hyperspectral"`. Optional parameters include `hyperspectral_bands`, `hyperspectral_rgb_mode`, and `reference_hyperspectral_cube_path` for change detection.
+4. The agent converts the cube to an RGB composite for the ResNet backbone, computes mean spectral signatures, and returns them alongside the usual classification, Grad-CAM explainability, and change metrics.
+
+**Example (direct use)**
 ```python
-from agents.policy_agent import PolicyAgent
-
-agent = PolicyAgent()
-result = agent.run({
-    'issue_type': 'deforestation',
-    'region': 'Ireland',
-    'severity': 'high',
-    'context': {...}
-})
-
-for rec in result.data['recommendations'][:3]:
-    print(f"{rec['policy']} - Priority {rec['priority_rank']}")
-```
-
-### **Orchestrator (ClimateCopilot)**
-Coordinates all agents for unified intelligence:
-
-```python
-from agents import ClimateCopilot
+from agents.satellite_agent import SatelliteAgent
 from utils import Config
 
-config = Config()
-copilot = ClimateCopilot(config.to_dict())
-
-# Single question triggers appropriate agents
-response = copilot.ask(
-    question="Which regions have rising land degradation and why?",
-    context={'region': 'Ireland', 'temporal_range': [2020, 2024]}
-)
-
-# Access all agent outputs
-print(response.satellite_analysis.data)
-print(response.climate_data.data)
-print(response.reasoning.data)
-print(response.policy_recommendations.data)
-```
-
----
-
-## 🔧 Tech Stack
-
-| Component | Tech | Purpose |
-|-----------|------|---------|
-| **Satellite Data** | Sentinelsat, rasterio, geopandas | Sentinel-2 processing |
-| **Geospatial** | Google Earth Engine, GDAL | Land-use analysis |
-| **ML/Computer Vision** | PyTorch, ResNet50, Grad-CAM | Classification & explanation |
-| **Data Processing** | Pandas, NumPy, xarray | Climate data analysis |
-| **LLM Orchestration** | LangChain, CrewAI | Agent coordination |
-| **LLMs** | OpenAI/Anthropic | Reasoning & explanations |
-| **Vector DB** | FAISS | Semantic search over datasets |
-| **Config** | Pydantic, YAML | Settings management |
-
----
-
-## 📊 Key Features
-
-### **1. Satellite Analysis**
-```python
-# Land-use classification with confidence scores
-agent.run({
-    'image_path': 'sentinel2.tif',
-    'location': 'Ireland'
+config = Config().to_dict()['agents']['satellite']
+config['sentinel'] = Config().to_dict().get('sentinel', {})
+config['hyperspectral'] = Config().to_dict().get('hyperspectral', {})
+agent = SatelliteAgent(config)
+result = agent.run({
+    "sensor": "hyperspectral",
+    "hyperspectral_cube_path": "./data/hyperspectral/sample_cube.npy",
+    "hyperspectral_bands": [5, 25, 60]
 })
-
-# Output includes:
-# - Classification: {class: 'forest', confidence: 0.95}
-# - Explainability: Grad-CAM heatmap showing important features
-# - Change detection: {change_magnitude: 12.3%, interpretation: 'High change'}
+print(result.data['classification'])
+print(result.data['spectral_signature'])
 ```
 
-### **2. Climate Data Integration**
-```python
-# Multi-source data aggregation
-agent.run({
-    'data_type': 'emissions',
-    'region': 'Ireland',
-    'temporal_range': [2020, 2024]
-})
-
-# Output includes:
-# - CO2, CH4, N2O time-series with trends
-# - Sectoral breakdown
-# - Regional comparisons
-# - Anomaly detection
-```
-
-### **3. LLM-Powered Reasoning**
-```python
-# Complex question answering with evidence
-question = "Why is deforestation increasing in Ireland?"
-
-# Agent automatically:
-# - Retrieves satellite data
-# - Fetches climate/emissions data
-# - Uses LLM to analyze and explain
-# - Provides confidence scores
-# - Cites evidence sources
-```
-
-### **4. Policy Recommendations**
-```python
-# Intelligent suggestion engine
-agent.run({
-    'issue_type': 'deforestation',
-    'region': 'Ireland',
-    'severity': 'high'
-})
-
-# Recommendations include:
-# - Prioritized by ROI and feasibility
-# - Resource estimates
-# - Implementation timelines
-# - Expected impact & co-benefits
-```
-
-### **5. Advanced Features**
-- ✅ **Explainability**: Grad-CAM on satellite images
-- ✅ **Time-Series Analysis**: Trend detection, anomalies, forecasting
-- ✅ **Change Detection**: Multi-temporal satellite comparison
-- ✅ **Biodiversity Analysis**: Shannon/Simpson indices, threat assessment
-- ✅ **Emissions Calculation**: CO2-equivalent from multiple GHGs
-- ✅ **Vector Search**: Semantic similarity search over climate data
-- ✅ **Caching**: Intelligent caching for efficiency
+When calling `ClimateCopilot`, pass the same keys inside the `context` dictionary so the orchestrator forwards them to the satellite agent.
 
 ---
+## Configuration Overview
 
-## 📝 Example Queries
-
-The copilot understands natural language queries:
-
-```python
-# Land degradation analysis
-"Which regions in Ireland have rising land degradation and why?"
-↓ Activates: Satellite + Data + Reasoning + Policy
-
-# Emissions analysis
-"What are the greenhouse gas trends in Ireland?"
-↓ Activates: Data + Reasoning
-
-# Policy recommendations
-"How can Ireland reduce deforestation?"
-↓ Activates: Satellite + Data + Reasoning + Policy
-
-# Biodiversity assessment
-"How is biodiversity changing in Irish wetlands?"
-↓ Activates: Data + Reasoning + Policy
-
-# Simple questions
-"What is NDVI?"
-↓ Activates: Reasoning
-```
-
----
-
-## ⚙️ Configuration
-
-Edit `config/settings.yaml`:
+`config/settings.yaml` controls runtime behavior:
 
 ```yaml
 llm:
-  provider: "openai"  # openai or anthropic
+  provider: "openai"
   model: "gpt-4"
   temperature: 0.7
 
 agents:
   satellite:
     model: "resnet50"
-    device: "cuda"  # or cpu
+    device: "cuda"
     confidence_threshold: 0.7
-  
   data:
     cache_enabled: true
     timeout: 300
-  
   policy:
     use_llm: true
     rule_based_fallback: true
@@ -348,96 +239,97 @@ agents:
 features:
   explainability:
     enabled: true
-    method: "grad-cam"  # grad-cam, saliency, attention
-  
+    method: "grad-cam"
   time_series_analysis: true
   change_detection: true
 ```
 
+Adjust dataset paths, cache locations, and service credentials to match your deployment.
+
 ---
 
-## 📦 Dependencies Installation
+## Installing Dependencies
 
 ```bash
-# Full installation with all features
 pip install -r requirements.txt
+```
 
-# Or selective installation:
-pip install langchain openai torch torchvision  # For LLM + ML
-pip install rasterio geopandas  # For geospatial
-pip install google-cloud-storage sentinelsat  # For satellite data
-pip install jupyter  # For notebooks
+For a tailored install you can combine packages manually, for example:
+```bash
+pip install langchain openai torch torchvision        # LLM and ML stack
+pip install rasterio geopandas                        # Geospatial stack
+pip install google-cloud-storage sentinelsat          # Satellite ingestion
+pip install jupyter                                   # Notebook support
 ```
 
 ---
 
-## 🔐 Setting Up Google Earth Engine
+## Google Earth Engine Setup
 
-1. **Create GEE Account**: https://code.earthengine.google.com/
-2. **Create Service Account**:
-   ```
-   Google Cloud Console → Service Accounts → Create
-   ```
-3. **Download JSON Key**: Save as `config/gee-key.json`
-4. **Configure in .env**:
-   ```
-   GEE_PROJECT_ID=your-project-id
-   GEE_SERVICE_ACCOUNT_PATH=./config/gee-key.json
-   ```
+1. Create a Google Earth Engine account: https://code.earthengine.google.com/
+2. Provision a service account in Google Cloud Console and download the JSON key to `config/gee-key.json`.
+3. Update `.env` with:
+```
+GEE_PROJECT_ID=your-project-id
+GEE_SERVICE_ACCOUNT_PATH=./config/gee-key.json
+GEE_SERVICE_ACCOUNT_EMAIL=service-account@your-project.iam.gserviceaccount.com
+```
 
 ---
 
-## 🚀 Next Steps
+## Roadmap
 
-### Immediate
-- [ ] Configure API keys (.env credentials)
-- [ ] Test with `python example.py`
-- [ ] Run CLI: `python main.py ask --question "..."`
+**Immediate**
+- Configure API credentials in `.env`.
+- Run `python example.py` to validate the stack.
+- Exercise the CLI via `python main.py ask ...` or `python main.py analyze-region ...`.
 
-### Short-term
-- [ ] Set up Google Earth Engine integration
-- [ ] Fine-tune satellite model on your data
-- [ ] Add custom climate datasets
-- [ ] Deploy with FastAPI backend
+**Short Term**
+- Enable Google Earth Engine workflows end to end.
+- Fine-tune the satellite models on organization-specific datasets.
+- Add additional climate or emissions datasets.
+- Wrap the CLI with a FastAPI or similar service.
 
-### Long-term
-- [ ] Real-time satellite monitoring dashboard
-- [ ] Multi-language support
-- [ ] Mobile app (React Native)
-- [ ] Integration with policy platforms
-- [ ] Fine-tuned domain-specific LLM
-
----
-
-## 📚 Learn More
-
-- **Sentinel-2**: https://sentinel.esa.int/web/sentinel/missions/sentinel-2
-- **Earth Engine**: https://developers.google.com/earth-engine
-- **LangChain**: https://python.langchain.com/
-- **PyTorch**: https://pytorch.org/
+**Long Term**
+- Real-time satellite monitoring dashboards.
+- Multi-language user experiences.
+- Mobile companion application.
+- Integrations with external policy and permitting platforms.
+- Domain-specific LLM fine-tuning.
 
 ---
 
-## 📄 License
+## Additional References
 
-MIT License - See LICENSE file
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! Areas needing work:
-- [ ] Real GEE data integration
-- [ ] More advanced ML models
-- [ ] Web UI/Dashboard
-- [ ] Performance optimization
+- Sentinel-2 Mission: https://sentinel.esa.int/web/sentinel/missions/sentinel-2
+- Google Earth Engine: https://developers.google.com/earth-engine
+- LangChain Documentation: https://python.langchain.com/
+- PyTorch: https://pytorch.org/
 
 ---
 
-## 📧 Support
+## License
 
-For issues and questions, please create an issue or contact the development team.
+MIT License. Refer to `LICENSE` for details.
 
 ---
 
-**Built with ❤️ for climate intelligence**
+## Contributing
+
+We welcome pull requests. Focus areas include:
+- Full Google Earth Engine data pipelines.
+- Additional machine-learning architectures.
+- Web UI and dashboard experiences.
+- Performance and latency optimization.
+
+Open an issue to discuss significant changes before submitting a pull request.
+
+---
+
+## Support
+
+Open an issue in this repository for questions or bug reports. For private discussions, contact the development team directly.
+
+---
+
+Built for climate-intelligence practitioners who need operational insight into land, climate, and policy signals.

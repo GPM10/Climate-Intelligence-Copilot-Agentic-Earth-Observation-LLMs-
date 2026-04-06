@@ -8,6 +8,8 @@ from zipfile import ZipFile
 import logging
 import numpy as np
 
+from .hyperspectral import HyperspectralProcessor
+
 try:
     from sentinelsat import SentinelAPI, geojson_to_wkt  # type: ignore
 except ImportError:  # pragma: no cover - optional dependency
@@ -315,4 +317,4 @@ class EarthEngineInterface:
             EarthEngineInterface._initialized = True
 
 
-__all__ = ['GeospatialProcessor', 'SentinelDataHandler', 'SentinelAPIClient', 'EarthEngineInterface']
+__all__ = ['GeospatialProcessor', 'SentinelDataHandler', 'SentinelAPIClient', 'EarthEngineInterface', 'HyperspectralProcessor']

@@ -25,6 +25,14 @@ sentinel:
   side_length_km: 25
   lookback_days: 45
   
+# Hyperspectral Configuration
+hyperspectral:
+  enabled: true
+  data_dir: "./data/hyperspectral"
+  band_selection: [10, 30, 50]
+  rgb_mode: "band_selection"  # options: band_selection, pca
+  signature_sample_fraction: 0.02
+
 # External Data Sources
 data_sources:
   edgar:

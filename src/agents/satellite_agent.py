@@ -14,7 +14,12 @@ import torch.nn.functional as F
 from torchvision import models, transforms
 from PIL import Image
 
-from geospatial import GeospatialProcessor, SentinelDataHandler, SentinelAPIClient
+from geospatial import (
+    GeospatialProcessor,
+    SentinelDataHandler,
+    SentinelAPIClient,
+    HyperspectralProcessor,
+)
 from .base import BaseAgent, AgentResult
 
 
@@ -37,6 +42,7 @@ class SatelliteAgent(BaseAgent):
         super().__init__("SatelliteAgent", config)
         self.device = torch.device(self.config.get("device", "cpu"))
         self.sentinel_config = self.config.get('sentinel', {})
+        self.hyperspectral_config = self.config.get('hyperspectral', {})
         self.sentinel_client: Optional[SentinelAPIClient] = None
         self._initialize_model()
 
@@ -64,15 +70,18 @@ class SatelliteAgent(BaseAgent):
 
         has_image = 'image_path' in input_data or 'image_array' in input_data
         has_remote = any(key in input_data for key in ('bbox', 'center_lat', 'center_lon'))
+        has_hyperspectral = any(key in input_data for key in ('hyperspectral_cube_path', 'hyperspectral_array'))
 
-        return has_image or has_remote
+        return has_image or has_remote or has_hyperspectral
 
     def execute(self, input_data: Any) -> Dict[str, Any]:
         """Execute land-use classification and change detection."""
 
         sentinel_metadata: Dict[str, Any] = {}
 
-        if 'image_path' in input_data:
+        if self._is_hyperspectral_request(input_data):
+            image, sentinel_metadata = self._process_hyperspectral(input_data)
+        elif 'image_path' in input_data:
             image = self._load_image(input_data['image_path'])
         elif 'image_array' in input_data:
             image = torch.tensor(input_data['image_array'], dtype=torch.float32)
@@ -93,6 +102,15 @@ class SatelliteAgent(BaseAgent):
         change_metrics = {}
         if 'reference_image_path' in input_data:
             ref_image = self._load_image(input_data['reference_image_path'])
+            ref_image = self._preprocess(ref_image)
+            change_metrics = self._detect_changes(image, ref_image)
+        elif input_data.get('reference_hyperspectral_cube_path'):
+            ref_image, _ = self._process_hyperspectral({
+                'hyperspectral_cube_path': input_data['reference_hyperspectral_cube_path'],
+                'hyperspectral_bands': input_data.get('hyperspectral_bands'),
+                'hyperspectral_rgb_mode': input_data.get('hyperspectral_rgb_mode'),
+                'sensor': input_data.get('sensor', 'hyperspectral'),
+            })
             ref_image = self._preprocess(ref_image)
             change_metrics = self._detect_changes(image, ref_image)
 
@@ -116,6 +134,7 @@ class SatelliteAgent(BaseAgent):
                 'timestamp': input_data.get('timestamp', str(datetime.now())),
                 'processed_at': str(datetime.now()),
                 'source': sentinel_metadata.get('scene_title') if sentinel_metadata else input_data.get('image_path'),
+                'sensor': sentinel_metadata.get('sensor') if sentinel_metadata else input_data.get('sensor', 'sentinel-2'),
             }
         }
 
@@ -123,6 +142,8 @@ class SatelliteAgent(BaseAgent):
             result['source'] = sentinel_metadata
             if 'spectral_indices' in sentinel_metadata:
                 result['spectral_indices'] = sentinel_metadata['spectral_indices']
+            if 'spectral_signature' in sentinel_metadata:
+                result['spectral_signature'] = sentinel_metadata['spectral_signature']
 
         return result
 
@@ -218,7 +239,53 @@ class SatelliteAgent(BaseAgent):
             'acquired': product.get('beginposition'),
             'bbox': bbox,
             'spectral_indices': indices,
+            'sensor': 'sentinel-2',
         }
+        return tensor, metadata
+
+    def _is_hyperspectral_request(self, input_data: Dict[str, Any]) -> bool:
+        return any([
+            input_data.get('sensor') == 'hyperspectral',
+            'hyperspectral_cube_path' in input_data,
+            'hyperspectral_array' in input_data,
+        ])
+
+    def _process_hyperspectral(self, input_data: Dict[str, Any]) -> Tuple[torch.Tensor, Dict[str, Any]]:
+        metadata: Dict[str, Any] = {
+            'sensor': input_data.get('sensor', 'hyperspectral'),
+        }
+
+        if 'hyperspectral_array' in input_data:
+            cube = np.asarray(input_data['hyperspectral_array'], dtype=np.float32)
+            metadata['source'] = 'in-memory'
+        elif 'hyperspectral_cube_path' in input_data:
+            cube = HyperspectralProcessor.load_cube(input_data['hyperspectral_cube_path'])
+            metadata['source'] = input_data['hyperspectral_cube_path']
+        else:
+            raise ValueError("Provide hyperspectral_cube_path or hyperspectral_array for hyperspectral requests.")
+
+        if cube.ndim != 3:
+            raise ValueError("Hyperspectral cube must be shaped (height, width, bands).")
+
+        metadata['cube_shape'] = list(cube.shape)
+
+        rgb_mode = input_data.get('hyperspectral_rgb_mode') or self.hyperspectral_config.get('rgb_mode', 'band_selection')
+        if rgb_mode == 'pca':
+            rgb = HyperspectralProcessor.pca_to_rgb(cube)
+            metadata['bands_used'] = 'pca'
+        else:
+            band_selection = input_data.get('hyperspectral_bands') or self.hyperspectral_config.get('band_selection', [10, 30, 50])
+            rgb = HyperspectralProcessor.select_bands(cube, band_selection)
+            metadata['bands_used'] = band_selection
+
+        signature = HyperspectralProcessor.compute_signature(
+            cube,
+            sample_fraction=self.hyperspectral_config.get('signature_sample_fraction', 0.02)
+        )
+        metadata['spectral_signature'] = signature
+        metadata.setdefault('scene_title', str(metadata.get('source', 'hyperspectral_cube')))
+
+        tensor = torch.tensor(rgb, dtype=torch.float32)
         return tensor, metadata
 
     def _get_sentinel_client(self) -> SentinelAPIClient:
@@ -280,4 +347,3 @@ class SatelliteAgent(BaseAgent):
                 'capabilities': ['land-use classification', 'change detection', 'Grad-CAM', 'Sentinel ingest'],
             }
         )
-
