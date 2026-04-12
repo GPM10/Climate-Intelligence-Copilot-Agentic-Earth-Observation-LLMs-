@@ -26,7 +26,8 @@ logs/
 data/sentinel/
 data/cams/
 data/cache/
-data/faiss_index
+data/faiss_index/
+data/hyperspectral/
 data/external/
 notebooks/.ipynb_checkpoints/
 

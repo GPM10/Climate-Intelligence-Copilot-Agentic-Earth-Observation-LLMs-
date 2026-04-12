@@ -3,7 +3,7 @@
 # LLM Configuration
 llm:
   provider: "openai"  # options: openai, anthropic, ollama
-  model: "gpt-4"
+  model: "gpt-5.4-nano"
   temperature: 0.7
   max_tokens: 2048
   api_key: "${OPENAI_API_KEY}"
@@ -70,7 +70,7 @@ agents:
   satellite:
     model: "resnet50"
     pretrained: true
-    device: "cuda"  # options: cuda, cpu
+    device: "cpu"  # options: cuda, cpu
     confidence_threshold: 0.7
     
   data:
@@ -79,7 +79,7 @@ agents:
     timeout: 300
     
   reasoning:
-    model: "gpt-4"
+    model: "gpt-5.4-nano"
     temperature: 0.5
     
   policy:
