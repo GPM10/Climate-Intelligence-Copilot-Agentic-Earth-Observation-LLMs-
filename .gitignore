@@ -28,6 +28,8 @@ data/cams/
 data/cache/
 data/faiss_index/
 data/hyperspectral/
+data/train/
+data/models/
 data/external/
 notebooks/.ipynb_checkpoints/
 

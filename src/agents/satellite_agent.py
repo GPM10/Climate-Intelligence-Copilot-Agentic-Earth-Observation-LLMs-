@@ -48,17 +48,32 @@ class SatelliteAgent(BaseAgent):
 
     def _initialize_model(self):
         """Initialize pre-trained ResNet50 for land-use classification."""
-        self.model = models.resnet50(pretrained=True)
+        pretrained = self.config.get("pretrained", True)
+        weights = models.ResNet50_Weights.IMAGENET1K_V1 if pretrained else None
+        self.model = models.resnet50(weights=weights)
         num_classes = self.config.get("num_classes", 10)
         self.model.fc = torch.nn.Linear(2048, num_classes)
+
+        checkpoint_path = self.config.get("checkpoint_path")
+        if checkpoint_path and os.path.exists(checkpoint_path):
+            payload = torch.load(checkpoint_path, map_location=self.device)
+            state_dict = payload.get("state_dict", payload)
+            checkpoint_classes = payload.get("class_names")
+            self.model.fc = torch.nn.Linear(2048, payload.get("num_classes", num_classes))
+            self.model.load_state_dict(state_dict)
+            if checkpoint_classes:
+                self.land_use_classes = checkpoint_classes
+            self.logger.info("Loaded satellite checkpoint from %s", checkpoint_path)
+
         self.model = self.model.to(self.device)
         self.model.eval()
 
-        self.land_use_classes = [
-            "water", "forest", "grassland", "cropland",
-            "urban", "barren", "shrubland", "snow",
-            "wetland", "mixed"
-        ]
+        if not hasattr(self, "land_use_classes"):
+            self.land_use_classes = [
+                "water", "forest", "grassland", "cropland",
+                "urban", "barren", "shrubland", "snow",
+                "wetland", "mixed"
+            ]
 
     def validate_input(self, input_data: Any) -> bool:
         """
@@ -100,7 +115,7 @@ class SatelliteAgent(BaseAgent):
         explanation = self._generate_gradcam(image, top_class)
 
         change_metrics = {}
-        if 'reference_image_path' in input_data:
+        if input_data.get('reference_image_path') is not None:
             ref_image = self._load_image(input_data['reference_image_path'])
             ref_image = self._preprocess(ref_image)
             change_metrics = self._detect_changes(image, ref_image)
@@ -154,6 +169,12 @@ class SatelliteAgent(BaseAgent):
 
     def _preprocess(self, image: torch.Tensor) -> torch.Tensor:
         """Preprocess image for model input."""
+        # Convert HxWxC inputs (numpy/image style) to CxHxW expected by torchvision.
+        if image.ndim == 3 and image.shape[-1] in (1, 3):
+            image = image.permute(2, 0, 1)
+        elif image.ndim == 2:
+            image = image.unsqueeze(0).repeat(3, 1, 1)
+
         if image.max() > 1:
             image = image / 255.0
 
@@ -246,8 +267,8 @@ class SatelliteAgent(BaseAgent):
     def _is_hyperspectral_request(self, input_data: Dict[str, Any]) -> bool:
         return any([
             input_data.get('sensor') == 'hyperspectral',
-            'hyperspectral_cube_path' in input_data,
-            'hyperspectral_array' in input_data,
+            input_data.get('hyperspectral_cube_path') is not None,
+            input_data.get('hyperspectral_array') is not None,
         ])
 
     def _process_hyperspectral(self, input_data: Dict[str, Any]) -> Tuple[torch.Tensor, Dict[str, Any]]:
@@ -255,10 +276,10 @@ class SatelliteAgent(BaseAgent):
             'sensor': input_data.get('sensor', 'hyperspectral'),
         }
 
-        if 'hyperspectral_array' in input_data:
+        if input_data.get('hyperspectral_array') is not None:
             cube = np.asarray(input_data['hyperspectral_array'], dtype=np.float32)
             metadata['source'] = 'in-memory'
-        elif 'hyperspectral_cube_path' in input_data:
+        elif input_data.get('hyperspectral_cube_path') is not None:
             cube = HyperspectralProcessor.load_cube(input_data['hyperspectral_cube_path'])
             metadata['source'] = input_data['hyperspectral_cube_path']
         else:

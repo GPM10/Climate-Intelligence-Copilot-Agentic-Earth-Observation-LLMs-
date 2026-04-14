@@ -13,7 +13,7 @@ class HyperspectralProcessor:
 
     @staticmethod
     def load_cube(path: str) -> np.ndarray:
-        """Load a hyperspectral cube from .npy, .npz, or .txt formats."""
+        """Load a hyperspectral cube from .npy, .npz, .nc, or .txt/.csv formats."""
         resolved = Path(path)
         if not resolved.exists():
             raise FileNotFoundError(f"Hyperspectral cube not found: {resolved}")
@@ -23,11 +23,27 @@ class HyperspectralProcessor:
         elif resolved.suffix == ".npz":
             data = np.load(resolved)
             cube = next(iter(data.values()))
+        elif resolved.suffix == ".nc":
+            try:
+                import xarray as xr  # type: ignore
+            except ImportError as exc:  # pragma: no cover - optional dependency
+                raise ImportError("xarray is required to load NetCDF hyperspectral cubes.") from exc
+
+            ds = xr.open_dataset(resolved)
+            preferred_vars = ("reflectance", "radiance")
+            variable_name = next((name for name in preferred_vars if name in ds.data_vars), None)
+            if not variable_name:
+                if len(ds.data_vars) != 1:
+                    raise ValueError(
+                        "Could not infer hyperspectral variable from NetCDF. Expected 'reflectance' or 'radiance'."
+                    )
+                variable_name = next(iter(ds.data_vars))
+            cube = ds[variable_name].values
         elif resolved.suffix in {".txt", ".csv"}:
             cube = np.loadtxt(resolved, delimiter=",")
         else:
             raise ValueError(
-                "Unsupported hyperspectral file format. Use .npy, .npz, or a CSV-like text file."
+                "Unsupported hyperspectral file format. Use .npy, .npz, .nc, or a CSV-like text file."
             )
 
         if cube.ndim != 3:

@@ -14,6 +14,14 @@ sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from agents import ClimateCopilot
 from utils import Config, Logger
+from training import train_satellite_model
+from training.satellite import TrainConfig
+from training.data_prep import (
+    EuroSATPrepConfig,
+    EmitPseudoLabelConfig,
+    prepare_eurosat,
+    prepare_emit_pseudolabels,
+)
 import logging
 
 
@@ -69,9 +77,17 @@ def ask(question: str, region: str, config: Optional[str], json_output: bool):
               help='Start year for analysis')
 @click.option('--end-year', type=int, default=2024,
               help='End year for analysis')
+@click.option('--hyperspectral-cube-path', default=None,
+              help='Path to a hyperspectral cube (.npy/.npz/.csv/.txt) used for satellite analysis')
 @click.option('--config', default=None,
               help='Path to config file')
-def analyze_region(region: str, start_year: int, end_year: int, config: Optional[str]):
+def analyze_region(
+    region: str,
+    start_year: int,
+    end_year: int,
+    hyperspectral_cube_path: Optional[str],
+    config: Optional[str]
+):
     """
     Perform comprehensive climate analysis of a region.
     
@@ -86,8 +102,165 @@ def analyze_region(region: str, start_year: int, end_year: int, config: Optional
     
     click.echo(f"\n📊 Analyzing {region} ({start_year}-{end_year})...\n")
     
-    response = copilot.analyze_region(region, [start_year, end_year])
+    if hyperspectral_cube_path:
+        cube_path = Path(hyperspectral_cube_path)
+        if not cube_path.exists():
+            click.echo(f"Error: Hyperspectral cube file not found: {hyperspectral_cube_path}")
+            sys.exit(1)
+
+        context = {
+            'region': region,
+            'temporal_range': [start_year, end_year],
+            'analysis_type': 'comprehensive',
+            'sensor': 'hyperspectral',
+            'hyperspectral_cube_path': str(cube_path),
+        }
+        question = (
+            f"Provide comprehensive climate analysis for {region} from {start_year} to {end_year} "
+            "using hyperspectral satellite data."
+        )
+        response = copilot.ask(question, context)
+    else:
+        response = copilot.analyze_region(region, [start_year, end_year])
     _print_response_pretty(response)
+
+
+@cli.command()
+@click.option('--data-dir', required=True,
+              help='Training data root. Either <root>/<class>/* or <root>/train/<class>/* and <root>/val/<class>/*')
+@click.option('--output-checkpoint', default='data/models/satellite_resnet50.pt',
+              help='Path to save final checkpoint')
+@click.option('--epochs', type=int, default=5,
+              help='Number of training epochs')
+@click.option('--batch-size', type=int, default=4,
+              help='Training batch size')
+@click.option('--learning-rate', type=float, default=1e-4,
+              help='Optimizer learning rate')
+@click.option('--val-ratio', type=float, default=0.2,
+              help='Validation split ratio when no train/val folders are provided')
+@click.option('--freeze-backbone', is_flag=True,
+              help='Freeze ResNet backbone and train only final classifier head')
+@click.option('--device', default='cpu',
+              help='Training device: cpu or cuda')
+@click.option('--rgb-mode', type=click.Choice(['band_selection', 'pca']), default='band_selection',
+              help='How to convert hyperspectral cubes into RGB inputs')
+@click.option('--hyperspectral-bands', default='10,30,50',
+              help='Comma-separated band indexes for band_selection mode')
+def train_satellite(
+    data_dir: str,
+    output_checkpoint: str,
+    epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    val_ratio: float,
+    freeze_backbone: bool,
+    device: str,
+    rgb_mode: str,
+    hyperspectral_bands: str,
+):
+    """Fine-tune the satellite ResNet classifier on labeled imagery/hyperspectral cubes."""
+    Logger.setup()
+    band_indexes = tuple(int(token.strip()) for token in hyperspectral_bands.split(",") if token.strip())
+    if rgb_mode == 'band_selection' and len(band_indexes) != 3:
+        click.echo("Error: --hyperspectral-bands must contain exactly 3 indexes for band_selection mode.")
+        sys.exit(1)
+
+    cfg = TrainConfig(
+        data_dir=data_dir,
+        output_path=output_checkpoint,
+        epochs=epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        val_ratio=val_ratio,
+        freeze_backbone=freeze_backbone,
+        device=device,
+        rgb_mode=rgb_mode,
+        hyperspectral_bands=band_indexes,
+    )
+    artifacts = train_satellite_model(cfg)
+    click.echo("Training complete.")
+    click.echo(f"Checkpoint: {artifacts['checkpoint']}")
+    click.echo(f"Best checkpoint: {artifacts['best_checkpoint']}")
+    click.echo(f"Classes: {artifacts['num_classes']}")
+
+
+@cli.command()
+@click.option('--source-dir', required=True,
+              help='Extracted EuroSAT dataset root containing class folders (AnnualCrop, Forest, etc.)')
+@click.option('--output-dir', default='data/train/satellite',
+              help='Output directory for train/val class folders')
+@click.option('--val-ratio', type=float, default=0.2,
+              help='Validation split ratio')
+@click.option('--seed', type=int, default=42,
+              help='Random seed')
+def prepare_eurosat_data(source_dir: str, output_dir: str, val_ratio: float, seed: int):
+    """Prepare EuroSAT into this repo's training folder structure."""
+    cfg = EuroSATPrepConfig(
+        source_dir=source_dir,
+        output_dir=output_dir,
+        val_ratio=val_ratio,
+        seed=seed,
+    )
+    counts = prepare_eurosat(cfg)
+    click.echo("EuroSAT preparation complete.")
+    for cls, count in sorted(counts.items()):
+        click.echo(f"  {cls}: {count}")
+
+
+@cli.command()
+@click.option('--emit-cube-path', required=True,
+              help='Path to EMIT hyperspectral cube (.nc/.npy/.npz/.txt/.csv)')
+@click.option('--label-raster-path', required=True,
+              help='Path to aligned label raster (.tif) from WorldCover or Dynamic World')
+@click.option('--output-dir', default='data/train/satellite',
+              help='Output directory for generated train/val chips')
+@click.option('--label-source', type=click.Choice(['worldcover', 'dynamicworld']), default='worldcover',
+              help='Pseudo-label source coding scheme')
+@click.option('--chip-size', type=int, default=64,
+              help='Square chip size in pixels')
+@click.option('--stride', type=int, default=64,
+              help='Sliding window stride in pixels')
+@click.option('--val-ratio', type=float, default=0.2,
+              help='Validation split ratio')
+@click.option('--min-valid-fraction', type=float, default=0.8,
+              help='Minimum non-zero label pixel fraction required in each chip')
+@click.option('--min-majority-fraction', type=float, default=0.7,
+              help='Minimum majority-class fraction required in each chip')
+@click.option('--max-chips-per-class', type=int, default=2000,
+              help='Cap generated chips per class')
+@click.option('--seed', type=int, default=42,
+              help='Random seed')
+def prepare_emit_pseudolabel_data(
+    emit_cube_path: str,
+    label_raster_path: str,
+    output_dir: str,
+    label_source: str,
+    chip_size: int,
+    stride: int,
+    val_ratio: float,
+    min_valid_fraction: float,
+    min_majority_fraction: float,
+    max_chips_per_class: int,
+    seed: int,
+):
+    """Build labeled EMIT training chips using WorldCover/Dynamic World raster pseudo-labels."""
+    cfg = EmitPseudoLabelConfig(
+        emit_cube_path=emit_cube_path,
+        label_raster_path=label_raster_path,
+        output_dir=output_dir,
+        label_source=label_source,
+        chip_size=chip_size,
+        stride=stride,
+        val_ratio=val_ratio,
+        min_valid_fraction=min_valid_fraction,
+        min_majority_fraction=min_majority_fraction,
+        max_chips_per_class=max_chips_per_class,
+        seed=seed,
+    )
+    counts = prepare_emit_pseudolabels(cfg)
+    click.echo("EMIT pseudo-label chip generation complete.")
+    for cls, count in sorted(counts.items()):
+        click.echo(f"  {cls}: {count}")
 
 
 @cli.command()

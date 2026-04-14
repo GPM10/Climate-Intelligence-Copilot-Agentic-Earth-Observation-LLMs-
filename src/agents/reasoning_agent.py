@@ -6,7 +6,12 @@ Explains causality, provides insights, and answers complex questions.
 from typing import Any, Dict, Optional
 import logging
 from datetime import datetime
-import json
+import os
+
+try:
+    from openai import OpenAI  # type: ignore
+except ImportError:  # pragma: no cover - optional dependency
+    OpenAI = None
 
 from .base import BaseAgent, AgentResult
 
@@ -28,14 +33,30 @@ class ReasoningAgent(BaseAgent):
     def __init__(self, config: Optional[Dict] = None):
         super().__init__("ReasoningAgent", config)
         self.llm_provider = self.config.get('llm_provider', 'openai')
+        self.model_name = self.config.get('model', 'gpt-5.4-nano')
+        self.temperature = self.config.get('temperature', 0.5)
+        self.max_tokens = self.config.get('max_tokens', 512)
         self._initialize_llm()
     
     def _initialize_llm(self):
-        """Initialize LLM connection (would use LangChain/CrewAI)."""
-        # This is a placeholder - in production, would initialize
-        # actual LangChain agent with memory and tools
-        self.llm = None  # Would be initialized based on provider
-        self.logger.info(f"ReasoningAgent initialized with {self.llm_provider}")
+        """Initialize LLM client for supported providers."""
+        self.llm = None
+
+        if self.llm_provider == 'openai':
+            if OpenAI is None:
+                self.logger.warning("openai package not installed; falling back to heuristic explanations.")
+                return
+
+            api_key = self.config.get('api_key') or os.getenv('OPENAI_API_KEY')
+            if not api_key:
+                self.logger.warning("OPENAI_API_KEY missing; falling back to heuristic explanations.")
+                return
+
+            self.llm = OpenAI(api_key=api_key)
+            self.logger.info("ReasoningAgent initialized with OpenAI model %s", self.model_name)
+            return
+
+        self.logger.warning("Unsupported llm_provider '%s'; using heuristic explanations.", self.llm_provider)
     
     def validate_input(self, input_data: Any) -> bool:
         """Validate reasoning request."""
@@ -71,7 +92,6 @@ class ReasoningAgent(BaseAgent):
         else:
             answer_type = 'general'
         
-        # Generate reasoning (in production, would use actual LLM)
         explanation = self._generate_explanation(question, context, answer_type)
         
         return {
@@ -164,27 +184,76 @@ class ReasoningAgent(BaseAgent):
         }
     
     def _generate_explanation(self, question: str, context: Dict, answer_type: str) -> str:
-        """Generate LLM-powered explanation (mock implementation)."""
-        
+        """Generate explanation using LLM when configured, with heuristic fallback."""
+        if self.llm is not None and self.llm_provider == 'openai':
+            try:
+                prompt = self._build_reasoning_prompt(question, context, answer_type)
+                response = self.llm.responses.create(
+                    model=self.model_name,
+                    temperature=self.temperature,
+                    max_output_tokens=self.max_tokens,
+                    input=prompt,
+                )
+                text = getattr(response, "output_text", "") or ""
+                if text.strip():
+                    return text.strip()
+            except Exception as exc:
+                self.logger.warning("OpenAI reasoning call failed; using fallback explanation: %s", exc)
+
         explanations = {
-            'causal': f"Based on the available data, the primary causes are...",
-            'descriptive': f"The current situation shows that...",
-            'trend': f"The trend indicates a {answer_type} pattern...",
-            'general': f"To answer your question about climate: ..."
+            'causal': "Based on the available data, the primary causes are not fully resolved yet.",
+            'descriptive': "The current situation indicates measurable climate and land-use pressure signals.",
+            'trend': "The observed indicators suggest an ongoing trend that needs corroboration with additional time windows.",
+            'general': "The available evidence is limited; add more data sources for a higher-confidence answer.",
         }
-        
         return explanations.get(answer_type, "Analysis in progress...")
+
+    def _build_reasoning_prompt(self, question: str, context: Dict, answer_type: str) -> str:
+        """Build concise prompt from agent outputs for model-based reasoning."""
+        satellite = context.get('satellite_data') if isinstance(context.get('satellite_data'), dict) else {}
+        climate = context.get('climate_data') if isinstance(context.get('climate_data'), dict) else {}
+        region = context.get('region', 'Unknown')
+
+        sat_summary = {
+            'classification': satellite.get('classification'),
+            'spectral_indices': satellite.get('spectral_indices'),
+            'change_detection': satellite.get('change_detection'),
+        }
+        climate_summary = {
+            'data_type': climate.get('data_type'),
+            'temporal_range': climate.get('temporal_range'),
+            'metrics': climate.get('climate_metrics') or climate.get('emissions'),
+            'sources': climate.get('sources'),
+            'note': climate.get('note'),
+        }
+
+        return (
+            "You are a climate analyst. Provide a concise answer grounded only in the provided evidence.\n"
+            f"Question type: {answer_type}\n"
+            f"Region: {region}\n"
+            f"Question: {question}\n"
+            f"Satellite evidence: {sat_summary}\n"
+            f"Climate evidence: {climate_summary}\n"
+            "Requirements:\n"
+            "- 1 short paragraph\n"
+            "- Mention uncertainty if data is missing\n"
+            "- Do not invent numbers not present in evidence"
+        )
     
     def _extract_evidence(self, context: Dict) -> Dict:
         """Extract evidence from provided context."""
         evidence = {}
-        
-        if 'satellite_data' in context:
-            evidence['satellite_classification'] = context['satellite_data'].get('classification')
-        if 'climate_data' in context:
+
+        satellite_data = context.get('satellite_data')
+        climate_data = context.get('climate_data')
+        biodiversity_data = context.get('biodiversity_data')
+
+        if isinstance(satellite_data, dict):
+            evidence['satellite_classification'] = satellite_data.get('classification')
+        if isinstance(climate_data, dict):
             evidence['climate_metrics'] = ['temperature', 'precipitation', 'emissions']
-        if 'biodiversity_data' in context:
-            evidence['biodiversity_status'] = context['biodiversity_data']
+        if biodiversity_data is not None:
+            evidence['biodiversity_status'] = biodiversity_data
         
         return evidence
     

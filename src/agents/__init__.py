@@ -71,7 +71,14 @@ class ClimateCopilot:
         data_cfg['data_sources'] = config.get('data_sources', {})
         self.data_agent = DataAgent(data_cfg)
 
-        self.reasoning_agent = ReasoningAgent(config.get('agents', {}).get('reasoning', {}))
+        reasoning_cfg = agents_cfg.get('reasoning', {}).copy()
+        llm_cfg = config.get('llm', {})
+        reasoning_cfg.setdefault('llm_provider', llm_cfg.get('provider', 'openai'))
+        reasoning_cfg.setdefault('model', llm_cfg.get('model', reasoning_cfg.get('model', 'gpt-5.4-nano')))
+        reasoning_cfg.setdefault('temperature', llm_cfg.get('temperature', reasoning_cfg.get('temperature', 0.5)))
+        reasoning_cfg.setdefault('max_tokens', llm_cfg.get('max_tokens', 512))
+        reasoning_cfg.setdefault('api_key', llm_cfg.get('api_key'))
+        self.reasoning_agent = ReasoningAgent(reasoning_cfg)
         self.policy_agent = PolicyAgent(config.get('agents', {}).get('policy', {}))
         
         self.logger.info("Climate Intelligence Copilot initialized successfully")

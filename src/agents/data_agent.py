@@ -143,7 +143,15 @@ class DataAgent(BaseAgent):
 
     def _fetch_climate_data(self, region: str, temporal_range: List, params: Dict[str, Any]) -> Dict:
         if not self.cams_source:
-            raise RuntimeError("CAMS data source not configured. See config.data_sources.cams.")
+            return {
+                'data_type': 'climate',
+                'region': region,
+                'temporal_range': temporal_range,
+                'climate_metrics': {},
+                'sources': ['CAMS disabled'],
+                'note': 'CAMS data source not configured. Configure config.data_sources.cams to enable climate metrics.',
+                'bbox': params.get('bbox') or resolve_bbox_from_region(region),
+            }
 
         bbox = params.get('bbox')
         if not bbox:
